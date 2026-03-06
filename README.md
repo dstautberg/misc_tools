@@ -2,7 +2,9 @@
 
 This is just a collection of miscellaneous tools.
 
-## dstat.ps1 - Displays current disk info
+---
+
+## *Powershell Script: dstat.ps1*
 
 A lightweight PowerShell utility to provide a report of the drive you are currently working in.
 
@@ -52,3 +54,44 @@ Simply navigate to any drive in your terminal and run the script:
 cd F:
 dstat
 ```
+
+---
+
+## *Python Script: bw_duplicate_entries.py*
+
+A Python utility to analyze an export file from Bitwarden password manager, and identify entries with duplicate names, with support for highlighting passwords containing specific keywords.
+
+### Features
+
+* Loads a Bitwarden JSON export file specified on the command line.
+* Identifies and reports entries with duplicate names.
+* Highlights entries whose passwords contain configurable search strings (displayed in red). This is intended to highlight passwords that you know are old, so you can delete those entries. Search strings are specified in a `.env` file.
+
+### Setup & Installation
+
+#### 1. Install Dependencies
+
+```powershell
+pip install python-dotenv
+```
+
+#### 2. Configure Search Strings (Optional)
+
+Create a `.env` file in the same directory with your search keywords:
+
+```env
+SEARCH_STRINGS='password,1234,secret'
+```
+
+### Usage
+
+```powershell
+python bw_duplicate_entries.py "D:\path\to\export.json" # Specify custom export file
+```
+
+### Output
+
+The script displays:
+- Number of items with duplicate names
+- Detailed list of duplicates with ID, name, username, and password
+- Any password containing a search string is highlighted in red
