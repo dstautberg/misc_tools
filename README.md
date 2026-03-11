@@ -92,6 +92,94 @@ python bw_duplicate_entries.py "D:\path\to\export.json" # Specify custom export 
 ### Output
 
 The script displays:
-- Number of items with duplicate names
-- Detailed list of duplicates with ID, name, username, and password
-- Any password containing a search string is highlighted in red
+
+* Number of items with duplicate names
+* Detailed list of duplicates with ID, name, username, and password
+* Any password containing a search string is highlighted in red
+
+---
+
+## *Go Program: backup.go*
+
+A Go utility to recursively backup files from one directory to another with support for bandwidth rate limiting.
+
+### Features
+
+* Recursively copies all files and subdirectories from source to destination
+* Automatically creates destination directory and subdirectories if they don't exist
+* Optional bandwidth rate limiting (MB/s)
+* Preserves file permissions
+* Displays progress during backup
+* Reports total bytes transferred and elapsed time
+
+### Setup & Installation
+
+#### 1. Install Go
+
+Download and install Go from [golang.org](https://golang.org/dl)
+
+#### 2. Install Dependencies
+
+```powershell
+go get github.com/joho/godotenv
+```
+
+#### 3. Configure Backup Settings
+
+Create a `.env` file in the same directory with your backup settings:
+
+```env
+BACKUP_SOURCE=D:\MyDocuments
+BACKUP_DEST=D:\Backups\MyDocuments
+TRANSFER_RATE_MB=50
+```
+
+**Configuration Options:**
+
+* `BACKUP_SOURCE` (required): Path to the source directory to backup
+* `BACKUP_DEST` (required): Path to the destination directory
+* `TRANSFER_RATE_MB` (optional): Maximum transfer rate in MB/s (0 or omitted = unlimited)
+
+### Usage & Building
+
+#### Build the executable
+
+```powershell
+go build -o backup.exe backup.go
+```
+
+#### Run the backup
+
+```powershell
+.\backup.exe
+```
+
+The script will read settings from `.env` in the current directory and start the backup process.
+
+### Output
+
+The script displays:
+
+* Backup configuration at start (source, destination, transfer rate limit)
+* Real-time progress for each file with:
+  * Timestamp (updated every 5 seconds)
+  * Filename and file size
+  * Current bandwidth in MB/s
+* Final statistics with total bytes transferred and elapsed time
+* Any warnings for files that couldn't be copied
+
+**Example Output:**
+
+```bash
+Backup started:
+  Source: D:\source
+  Destination: D:\backup
+  Transfer Rate Limit: 10 MB/s
+
+[2026-03-10 20:13:42] Copying: file1.jpg (0.30 MB) - 0.52 MB/s
+[2026-03-10 20:15:17] Copying: largefile.wmv (53.01 MB) - 0.56 MB/s
+
+Backup completed!
+  Total transferred: 50,000 MB
+  Time elapsed: 2h15m30s
+```
