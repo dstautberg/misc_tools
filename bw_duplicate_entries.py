@@ -8,7 +8,23 @@ import pathlib
 from pprint import pprint
 from dotenv import load_dotenv
 
+# TODO: Incorporate listing of N oldest items.
+#
+# $ bw login
+# ? Email address: dstautberg@gmail.com
+# ? Master password: [hidden]
+# You are logged in!
 
+# To unlock your vault, set your session key to the `BW_SESSION` environment variable. ex:
+# $ export BW_SESSION="nYaQXQsWYOJs8Dpcwy6GSnEsVytJnUb+7W+Z25SqlN1DTxVoYppz0gsjYXZK27by816/Yl8nNnXjSLd9/wpC0Q=="
+# > $env:BW_SESSION="nYaQXQsWYOJs8Dpcwy6GSnEsVytJnUb+7W+Z25SqlN1DTxVoYppz0gsjYXZK27by816/Yl8nNnXjSLd9/wpC0Q=="
+
+# You can also pass the session key to any command with the `--session` option. ex:
+# $ bw list items --session nYaQXQsWYOJs8Dpcwy6GSnEsVytJnUb+7W+Z25SqlN1DTxVoYppz0gsjYXZK27by816/Yl8nNnXjSLd9/wpC0Q==
+
+# $ bw sync
+# $ bw list items | jq 'sort_by(.revisionDate) | .[0:5]'
+ 
 def load_bitwarden_export(file_path: str = "bitwarden_export.json") -> dict:
     """Load the Bitwarden export JSON file and return as Python objects.
     
