@@ -1,4 +1,4 @@
-module backup
+module github.com/dstautberg/misc_tools
 
 go 1.24.3
 
