@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\*\shell\GoRenamer]
+@="Rename with Go Tool"
+"Icon"="D:\\dev\\misc_tools\\rename.exe"
+
+[HKEY_CLASSES_ROOT\*\shell\GoRenamer\command]
+@="\"D:\\dev\\misc_tools\\rename.exe\" \"%1\""

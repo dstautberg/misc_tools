@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -10,14 +11,7 @@ import (
 	"strings"
 )
 
-// Rename PDF statement files to a consistent 'PaypalStatement-YYYY-MM.pdf' format.
-//
-// Supported input patterns:
-//   1. statement-Apr-2024.pdf   →  PaypalStatement-2024-04.pdf
-//   2. Statement_201406.pdf     →  PaypalStatement-2014-06.pdf
-//
-// # Build the rename tool
-// go build -o rename.exe ./cmd/rename
+// --- Configuration and Data ---
 
 var monthMap = map[string]string{
 	"Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
@@ -25,36 +19,28 @@ var monthMap = map[string]string{
 	"Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
 }
 
-// RenamePattern matches filenames and extracts year/month for renaming.
 type RenamePattern struct {
 	Description string
 	Regex       *regexp.Regexp
-	// 'alpha'   → month is a 3-letter abbreviation (Jan, Feb, …)
-	// 'numeric' → month is already a zero-padded number (01–12)
-	MonthType string
+	MonthType   string
 }
 
 var patterns = []RenamePattern{
 	{
 		Description: "statement-Mon-YYYY.pdf",
-		Regex: regexp.MustCompile(
-			`(?i)^statement-(?P<month>[A-Za-z]{3})-(?P<year>\d{4})\.pdf$`,
-		),
-		MonthType: "alpha",
+		Regex:       regexp.MustCompile(`(?i)^statement-(?P<month>[A-Za-z]{3})-(?P<year>\d{4})\.pdf$`),
+		MonthType:   "alpha",
 	},
 	{
 		Description: "Statement_YYYYMM.pdf",
-		Regex: regexp.MustCompile(
-			`(?i)^statement_(?P<year>\d{4})(?P<month>\d{2})\.pdf$`,
-		),
-		MonthType: "numeric",
+		Regex:       regexp.MustCompile(`(?i)^statement_(?P<year>\d{4})(?P<month>\d{2})\.pdf$`),
+		MonthType:   "numeric",
 	},
 }
 
+// --- Logic Functions ---
+
 func resolveMonth(monthStr, monthType string) *string {
-	// Return a zero-padded month number string, or nil on failure.
-	//   monthType='alpha'   : 'Apr' → '04'
-	//   monthType='numeric' : '06'  → '06' (validated to be 01–12)
 	if monthType == "alpha" {
 		if val, ok := monthMap[strings.Title(strings.ToLower(monthStr))]; ok {
 			return &val
@@ -68,14 +54,11 @@ func resolveMonth(monthStr, monthType string) *string {
 			result := fmt.Sprintf("%02d", monthNum)
 			return &result
 		}
-		return nil
 	}
 	return nil
 }
 
 func matchFile(filename string) (string, string, bool) {
-	// Try every pattern against filename.
-	// Returns (year, month_num, ok) on the first match, or (_, _, false) if nothing matches.
 	for _, pattern := range patterns {
 		matches := pattern.Regex.FindStringSubmatchIndex(filename)
 		if matches == nil {
@@ -103,17 +86,13 @@ func buildNewName(year, monthNum string) string {
 	return fmt.Sprintf("PaypalStatement-%s-%s.pdf", year, monthNum)
 }
 
-func renameFiles(directory string, dryRun bool) {
-	fi, err := os.Stat(directory)
-	if err != nil || !fi.IsDir() {
-		fmt.Fprintf(os.Stderr, "Error: '%s' is not a valid directory.\n", directory)
-		os.Exit(1)
-	}
+// --- Execution Handlers ---
 
+func renameFiles(directory string, dryRun bool) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading directory: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("Error reading directory: %v\n", err)
+		return
 	}
 
 	var files []string
@@ -129,68 +108,81 @@ func renameFiles(directory string, dryRun bool) {
 		return
 	}
 
-	renamed := 0
-	skipped := 0
-
 	for _, filename := range files {
-		year, monthNum, ok := matchFile(filename)
-		if !ok {
-			fmt.Printf("  [skip]    %q  — doesn't match any pattern\n", filename)
-			skipped++
-			continue
-		}
-
-		newName := buildNewName(year, monthNum)
-		oldPath := filepath.Join(directory, filename)
-		newPath := filepath.Join(directory, newName)
-
-		if _, err := os.Stat(newPath); err == nil {
-			fmt.Printf("  [skip]    %q  — target '%s' already exists\n", filename, newName)
-			skipped++
-			continue
-		}
-
-		if dryRun {
-			fmt.Printf("  [dry-run] %q  →  %q\n", filename, newName)
-		} else {
-			if err := os.Rename(oldPath, newPath); err != nil {
-				fmt.Fprintf(os.Stderr, "Error renaming %s: %v\n", filename, err)
-				skipped++
-				continue
-			}
-			fmt.Printf("  [renamed] %q  →  %q\n", filename, newName)
-		}
-
-		renamed++
+		processFile(directory, filename, dryRun)
 	}
-
-	suffix := ""
-	if dryRun {
-		suffix = "would be "
-	}
-	fmt.Printf("\nDone. %d file(s) %srenamed, %d skipped.\n", renamed, suffix, skipped)
 }
 
+func renameSingleFile(path string, dryRun bool) {
+	dir := filepath.Dir(path)
+	filename := filepath.Base(path)
+	processFile(dir, filename, dryRun)
+}
+
+func processFile(directory, filename string, dryRun bool) {
+	year, monthNum, ok := matchFile(filename)
+	if !ok {
+		fmt.Printf("  [skip]    %q  — no match\n", filename)
+		return
+	}
+
+	newName := buildNewName(year, monthNum)
+	oldPath := filepath.Join(directory, filename)
+	newPath := filepath.Join(directory, newName)
+
+	if _, err := os.Stat(newPath); err == nil {
+		fmt.Printf("  [skip]    %q  — target exists\n", filename)
+		return
+	}
+
+	if dryRun {
+		fmt.Printf("  [dry-run] %q  →  %q\n", filename, newName)
+	} else {
+		if err := os.Rename(oldPath, newPath); err != nil {
+			fmt.Printf("  [error]   %q: %v\n", filename, err)
+		} else {
+			fmt.Printf("  [renamed] %q  →  %q\n", filename, newName)
+		}
+	}
+}
+
+// --- Main Entry Point ---
+
 func main() {
-	dryRun := flag.Bool("dry-run", false, "Preview renames without making any changes.")
+	dryRun := flag.Bool("dry-run", false, "Preview renames.")
 	flag.Parse()
 
-	directory := "."
+	target := "."
 	if flag.NArg() > 0 {
-		directory = flag.Arg(0)
+		target = flag.Arg(0)
 	}
 
-	absDir, err := filepath.Abs(directory)
+	absPath, err := filepath.Abs(target)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resolving directory: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("Path error: %v\n", err)
+		waitForExit()
+		return
 	}
 
-	prefix := ""
-	if *dryRun {
-		prefix = "[DRY RUN] "
+	fi, err := os.Stat(absPath)
+	if err != nil {
+		fmt.Printf("Access error: %v\n", err)
+		waitForExit()
+		return
 	}
-	fmt.Printf("%sScanning: %s\n\n", prefix, absDir)
 
-	renameFiles(absDir, *dryRun)
+	if fi.IsDir() {
+		fmt.Printf("Scanning Directory: %s\n\n", absPath)
+		renameFiles(absPath, *dryRun)
+	} else {
+		fmt.Printf("Processing File: %s\n\n", absPath)
+		renameSingleFile(absPath, *dryRun)
+	}
+
+	waitForExit()
+}
+
+func waitForExit() {
+	fmt.Println("\nExecution finished. Press 'Enter' to close...")
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
