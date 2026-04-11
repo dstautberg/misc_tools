@@ -183,3 +183,44 @@ Backup completed!
   Total transferred: 50,000 MB
   Time elapsed: 2h15m30s
 ```
+
+---
+
+## Rename Tools
+
+This repository includes two utilities that standardize PDF statement filenames to the format `PaypalStatement-YYYY-MM.pdf`.
+
+* **Python script:** `rename_files.py`
+  * Purpose: Rename PDF statement files matching multiple patterns to `PaypalStatement-YYYY-MM.pdf`.
+  * Supported patterns:
+    * `statement-Mon-YYYY.pdf` (e.g., `statement-Apr-2024.pdf` → `PaypalStatement-2024-04.pdf`)
+    * `Statement_YYYYMM.pdf` (e.g., `Statement_201406.pdf` → `PaypalStatement-2014-06.pdf`)
+  * Usage:
+    * `python rename_files.py` (rename files in current directory)
+    * `python rename_files.py /path/to/dir` (rename in specified directory)
+    * `python rename_files.py /path/to/dir --dry-run` (preview changes without renaming)
+  * Notes: The script skips files that don't match or where a target name already exists. Use `--dry-run` to preview.
+
+* **Go program:** `cmd/rename` (builds to `rename.exe`)
+  * Purpose: Same behavior as the Python script, provided as a compiled binary for convenience.
+  * Build:
+
+    ```powershell
+    go build -o rename.exe ./cmd/rename
+    ```
+
+  * Run examples:
+
+    ```powershell
+    ./rename.exe . --dry-run     # scan current directory (Windows: rename.exe . --dry-run)
+    ./rename.exe "C:\path\to\file.pdf"   # rename a single file
+    go run ./cmd/rename . --dry-run         # run without building
+    ```
+
+  * Note: The Go binary prints results similarly and pauses for `Enter` before exiting (useful when launched by double-click).
+
+* **Windows Explorer integration:** `rename.reg`
+  * The file `rename.reg` contains a registry entry that adds a right-click context menu item "Rename with Go Tool" which invokes `rename.exe` with the selected file path.
+  * To enable the context menu, import the `.reg` file (double-click it or use `regedit`) after updating the `rename.exe` path inside the file to match your build location.
+
+Both tools implement the same filename patterns and provide a `--dry-run` preview mode for safe usage.
