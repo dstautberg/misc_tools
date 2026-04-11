@@ -231,8 +231,6 @@ Both tools implement the same filename patterns and provide a `--dry-run` previe
 
 A Python script to backup your Pixel 6a phone to a local directory using ADB (Android Debug Bridge) and BetterADBSync.
 
-Note: The backup_phone.py script has moved to my <https://github.com/dstautberg/misc_tools> repository. Any future changes will happen there.
-
 ### Overview
 
 This tool automates the process of backing up your Pixel 6a's internal storage to a destination folder. It uses ADB to communicate with your phone and BetterADBSync to efficiently synchronize files while excluding hidden system files.
