@@ -6,10 +6,7 @@
     To run this script:
     1. Open PowerShell (as Administrator for full access).
     2. Navigate to the script's folder: cd "C:\path\to\script"
-    3. Execute: powershell -File FullFileInventory.ps1
-    
-    Note: If you get an execution policy error, run:
-    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+    3. Execute: powershell -ExecutionPolicy Bypass -File .\FullFileInventory.ps1
 #>
 
 # Get all Fixed and Removable drives that actually have media inserted
