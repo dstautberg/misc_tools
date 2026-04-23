@@ -1,29 +1,41 @@
-# powershell -ExecutionPolicy Bypass -File "FullFileInventory.ps1"
+<#
+.SYNOPSIS
+    Scans all active drives and appends file metadata to a central CSV.
+    
+.DESCRIPTION
+    To run this script:
+    1. Open PowerShell (as Administrator for full access).
+    2. Navigate to the script's folder: cd "C:\path\to\script"
+    3. Execute: powershell -File FullFileInventory.ps1
+    
+    Note: If you get an execution policy error, run:
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+#>
 
-# Get all drives that have a drive letter (Fixed, Removable, or Network)
-$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -ne $null }
-
-$report = foreach ($drive in $drives) {
-    # Define the root path (e.g., "C:\")
-    $rootPath = $drive.Root
-    Write-Host "Scanning $rootPath..." -ForegroundColor Cyan
-
-    try {
-        # Recurse through all files
-        Get-ChildItem -Path $rootPath -Recurse -File -ErrorAction SilentlyContinue | 
-        Select-Object @{Name="Drive"; Expression={$rootPath}},
-                      @{Name="Directory"; Expression={$_.DirectoryName}},
-                      @{Name="FileName"; Expression={$_.Name}},
-                      @{Name="Size(MB)"; Expression={[Math]::Round($_.Length / 1MB, 2)}},
-                      LastWriteTime
-    }
-    catch {
-        Write-Warning "Could not fully scan $rootPath"
-    }
+# Get all Fixed and Removable drives that actually have media inserted
+$drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { 
+    $_.IsReady -and ($_.DriveType -eq 'Fixed' -or $_.DriveType -eq 'Removable') 
 }
 
-# Output to the console and save to a CSV
-$report | Out-GridView  # Opens a searchable window
-$report | Export-Csv -Path "FullFileInventory.csv" -NoTypeInformation
+$outputPath = ".\FullFileInventory.csv"
+$timeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-Write-Host "Inventory complete. CSV saved." -ForegroundColor Green
+foreach ($drive in $drives) {
+    $targetPath = $drive.RootDirectory.FullName
+    Write-Host "Scanning Drive: $targetPath..." -ForegroundColor Cyan
+
+    # Recurse through all files, skipping folders where access is denied
+    Get-ChildItem -Path $targetPath -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        [PSCustomObject]@{
+            DateScanned = $timeStamp
+            HostName    = $env:COMPUTERNAME
+            Drive       = $targetPath
+            FilePath    = $_.DirectoryName
+            FileName    = $_.Name
+            Size_MB     = [math]::Round($_.Length / 1MB, 2)
+            LastMod     = $_.LastWriteTime
+        }
+    } | Export-Csv -Path $outputPath -NoTypeInformation -Append
+}
+
+Write-Host "Success! Data appended to $outputPath" -ForegroundColor Green
