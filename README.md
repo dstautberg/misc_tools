@@ -327,3 +327,20 @@ You can modify the following in `backup_phone.py`:
 ### License
 
 This is a personal backup tool. Feel free to modify and use as needed.
+
+---
+
+## Other Utilities
+
+- **normalize_mp3.py**: Normalize MP3 loudness to a target LUFS (Loudness Units relative to Full Scale) using ffmpeg and the `pyloudnorm` library.
+  - Install dependencies: `pip install pyloudnorm numpy`
+  - Requires `ffmpeg` on PATH: https://ffmpeg.org/download.html
+  - Example: `python normalize_mp3.py ./music/ --output ./normalized/ --target -16 --dry-run`
+
+- **schedule_backup_phone.py**: Scheduler to run the Pixel backup (`backup_phone.run_backup()`) daily using the `schedule` package.
+  - Install: `pip install schedule`
+  - Run: `python schedule_backup_phone.py`
+
+- **FullFileInventory.ps1 / FullFileInventory.csv**: PowerShell script that scans attached drives and appends file metadata to `FullFileInventory.csv`.
+  - Run: `powershell -ExecutionPolicy Bypass -File .\\FullFileInventory.ps1`
+
