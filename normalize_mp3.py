@@ -13,7 +13,7 @@ Examples:
     # Normalize all MP3s in a folder, saving to an output folder
     python normalize_mp3.py ./music/ --output ./normalized/
 
-    # Normalize multiple files to -16 LUFS (podcast standard)
+    # Normalize multiple files to -16 LUFS (Loudness Units relative to Full Scale) (podcast standard)
     python normalize_mp3.py ./music/ --target -16
 
     # Dry run — show what would change without writing files
@@ -140,8 +140,15 @@ def normalize_file(input_path: Path, output_path: Path, target_lufs: float, dry_
         print(f"  ERROR reading {input_path.name}: {e}")
         return False
 
-    meter = pyln.Meter(rate)
-    current_lufs = meter.integrated_loudness(samples)
+    try:
+        meter = pyln.Meter(rate)
+        current_lufs = meter.integrated_loudness(samples)
+    except MemoryError:
+        print(f"  SKIP {input_path.name} — file too large to process (out of memory)")
+        return False
+    except Exception as e:
+        print(f"  ERROR analyzing {input_path.name}: {e}")
+        return False
 
     if current_lufs == float("-inf"):
         print(f"  SKIP {input_path.name} — silence detected")
@@ -154,11 +161,8 @@ def normalize_file(input_path: Path, output_path: Path, target_lufs: float, dry_
     if dry_run:
         return True
 
-    normalized = samples * gain_linear
-
-    # Clip to prevent distortion
     import numpy as np
-    normalized = np.clip(normalized, -1.0, 1.0)
+    normalized = np.clip(samples * gain_linear, -1.0, 1.0)
 
     try:
         encode_from_pcm(normalized, rate, channels, output_path)
@@ -184,7 +188,7 @@ def collect_mp3s(paths):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Normalize MP3 loudness to a target LUFS (Loudness Units relative to Full Scale).",
+        description="Normalize MP3 loudness to a target LUFS level.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -213,7 +217,7 @@ def main():
 
     out_dir = Path(args.output) if args.output else None
     mode = "DRY RUN — " if args.dry_run else ""
-    print(f"\n{mode}Normalizing {len(mp3_files)} file(s) to {args.target} LUFS\n")
+    print(f"\n{mode}Normalizing {len(mp3_files)} file(s) to {args.target} LUFS (Loudness Units relative to Full Scale)\n")
 
     success = 0
     for src in mp3_files:
