@@ -156,6 +156,11 @@ def normalize_file(input_path: Path, output_path: Path, target_lufs: float, dry_
 
     gain_db = target_lufs - current_lufs
     gain_linear = 10 ** (gain_db / 20.0)
+
+    if abs(gain_db) < 0.5:
+        print(f"  SKIP {input_path.name}: {current_lufs:.1f} LUFS — already within 0.5 dB of target")
+        return True
+
     print(f"  {input_path.name}: {current_lufs:.1f} LUFS → {target_lufs:.1f} LUFS  (gain: {gain_db:+.1f} dB)")
 
     if dry_run:
