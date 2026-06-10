@@ -99,7 +99,11 @@ The script displays:
 
 ---
 
-## *Go Program: backup.go*
+## *Go Programs (Go)*
+
+This repository contains two Go command-line tools located under the `cmd/` directory: `cmd/backup` and `cmd/rename`.
+
+### `cmd/backup` (backup)
 
 A Go utility to recursively backup files from one directory to another with support for bandwidth rate limiting.
 
@@ -145,7 +149,7 @@ TRANSFER_RATE_MB=50
 #### Build the executable
 
 ```powershell
-go build -o backup.exe backup.go
+go build -o backup.exe ./cmd/backup
 ```
 
 #### Run the backup
