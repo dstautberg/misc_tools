@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -19,17 +20,60 @@ func main() {
 	}
 
 	// Get configuration from environment variables
-	sourceDir := os.Getenv("BACKUP_SOURCE")
-	destDir := os.Getenv("BACKUP_DEST")
+	// Support multiple sources/dests via BACKUP_SOURCES / BACKUP_DESTS (comma or semicolon separated)
+	// Fall back to singular BACKUP_SOURCE / BACKUP_DEST for compatibility
+	// Read new GO_ names; fall back to legacy names if present
+	sourcesEnv := os.Getenv("GO_BACKUP_SOURCES")
+	if sourcesEnv == "" {
+		sourcesEnv = os.Getenv("GO_BACKUP_SOURCE")
+		if sourcesEnv == "" {
+			// legacy fallback
+			sourcesEnv = os.Getenv("BACKUP_SOURCES")
+			if sourcesEnv == "" {
+				sourcesEnv = os.Getenv("BACKUP_SOURCE")
+			}
+		}
+	}
+
+	destsEnv := os.Getenv("GO_BACKUP_DESTINATIONS")
+	if destsEnv == "" {
+		destsEnv = os.Getenv("GO_BACKUP_DESTINATION")
+		if destsEnv == "" {
+			// legacy fallback
+			destsEnv = os.Getenv("BACKUP_DESTS")
+			if destsEnv == "" {
+				destsEnv = os.Getenv("BACKUP_DEST")
+			}
+		}
+	}
 	transferRateStr := os.Getenv("TRANSFER_RATE_MB")
 
-	// Validate required fields
-	if sourceDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: BACKUP_SOURCE not set in .env\n")
+	// Parse sources and destinations
+	splitPaths := func(s string) []string {
+		if s == "" {
+			return nil
+		}
+		// split on comma or semicolon
+		parts := strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ';' })
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			t := strings.TrimSpace(p)
+			if t != "" {
+				out = append(out, t)
+			}
+		}
+		return out
+	}
+
+	sources := splitPaths(sourcesEnv)
+	dests := splitPaths(destsEnv)
+
+	if len(sources) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: GO_BACKUP_SOURCES or GO_BACKUP_SOURCE not set in .env\n")
 		os.Exit(1)
 	}
-	if destDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: BACKUP_DEST not set in .env\n")
+	if len(dests) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: GO_BACKUP_DESTINATIONS or GO_BACKUP_DESTINATION not set in .env\n")
 		os.Exit(1)
 	}
 
@@ -46,26 +90,11 @@ func main() {
 		transferRateMB = rate
 	}
 
-	// Verify source directory exists
-	srcStat, err := os.Stat(sourceDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Source directory not found: %s\n", sourceDir)
-		os.Exit(1)
-	}
-	if !srcStat.IsDir() {
-		fmt.Fprintf(os.Stderr, "Error: Source is not a directory: %s\n", sourceDir)
-		os.Exit(1)
-	}
-
-	// Create destination directory if it doesn't exist
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Could not create destination directory: %v\n", err)
-		os.Exit(1)
-	}
+	// We'll validate sources/destinations and run backups per pair below
 
 	fmt.Printf("Backup started:\n")
-	fmt.Printf("  Source: %s\n", sourceDir)
-	fmt.Printf("  Destination: %s\n", destDir)
+	fmt.Printf("  Sources: %s\n", strings.Join(sources, ", "))
+	fmt.Printf("  Destinations: %s\n", strings.Join(dests, ", "))
 	if transferRateMB > 0 {
 		fmt.Printf("  Transfer Rate Limit: %.2f MB/s\n", transferRateMB)
 	} else {
@@ -73,15 +102,50 @@ func main() {
 	}
 	fmt.Println()
 
-	// Perform recursive backup
+	// Perform recursive backup for each source/destination pair
 	bytesTransferred := int64(0)
 	filesCopied := int64(0)
 	filesSkipped := int64(0)
 	startTime := time.Now()
 
-	if err := backupRecursive(sourceDir, destDir, sourceDir, transferRateMB, &bytesTransferred, &filesCopied, &filesSkipped); err != nil {
-		fmt.Fprintf(os.Stderr, "Error during backup: %v\n", err)
-		os.Exit(1)
+	for i, src := range sources {
+		// Determine destination for this source
+		var destRoot string
+		if len(dests) == 1 {
+			// Single destination: create subdir using basename of source
+			destRoot = filepath.Join(dests[0], filepath.Base(src))
+		} else {
+			// Multiple destinations: must match by index
+			if i >= len(dests) {
+				fmt.Fprintf(os.Stderr, "Error: not enough destinations provided for source %s\n", src)
+				os.Exit(1)
+			}
+			destRoot = dests[i]
+		}
+
+		fmt.Printf("\nBacking up source: %s -> %s\n", src, destRoot)
+
+		// Verify source exists and is a directory
+		srcStat, err := os.Stat(src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Source not found, skipping: %s (%v)\n", src, err)
+			continue
+		}
+		if !srcStat.IsDir() {
+			fmt.Fprintf(os.Stderr, "Warning: Source is not a directory, skipping: %s\n", src)
+			continue
+		}
+
+		// Create destination directory if it doesn't exist
+		if err := os.MkdirAll(destRoot, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Could not create destination directory %s: %v\n", destRoot, err)
+			continue
+		}
+
+		if err := backupRecursive(src, destRoot, src, transferRateMB, &bytesTransferred, &filesCopied, &filesSkipped); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Error during backup of %s: %v\n", src, err)
+			continue
+		}
 	}
 
 	elapsed := time.Since(startTime)
