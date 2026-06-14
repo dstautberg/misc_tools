@@ -70,6 +70,9 @@ def main():
         print(f"Top-level keys: {list(data.keys()) if isinstance(data, dict) else 'N/A'}")
         
         items = data.get("items", [])
+        # Sort items by revisionDate (newest first). Items missing a revisionDate
+        # will be treated as oldest and appear last.
+        items.sort(key=lambda x: x.get('revisionDate', ''), reverse=True)
         print(f"Number of total items: {len(items)}")
         
         # Count name occurrences
@@ -87,13 +90,14 @@ def main():
         for item in duplicate_items:
             item_id = item.get('id')
             name = item.get('name')
+            revision = item.get('revisionDate') or ''
             username = item.get('login', {}).get('username')
             password = item.get('login', {}).get('password') or ''
             
             # Check if password contains any search strings
             contains_search = any(search_str.lower() in password.lower() for search_str in search_strings)
             
-            output = f"Item ID: {item_id}, Name: {name}, username: {username}, password: {password}"
+            output = f"Item ID: {item_id}, Name: {name}, revisionDate: {revision}, username: {username}, password: {password}"
             if contains_search:
                 output = f"{red_color}{output}{reset_color}"
             

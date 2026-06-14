@@ -66,6 +66,8 @@ A Python utility to analyze an export file from Bitwarden password manager, and 
 * Loads a Bitwarden JSON export file specified on the command line.
 * Identifies and reports entries with duplicate names.
 * Highlights entries whose passwords contain configurable search strings (displayed in red). This is intended to highlight passwords that you know are old, so you can delete those entries. Search strings are specified in a `.env` file.
+* Sorts items by `revisionDate` (newest first) so oldest entries appear last.
+* Includes the `revisionDate` value in the printed output for each duplicate item.
 
 ### Setup & Installation
 
@@ -94,7 +96,8 @@ python bw_duplicate_entries.py "D:\path\to\export.json" # Specify custom export 
 The script displays:
 
 * Number of items with duplicate names
-* Detailed list of duplicates with ID, name, username, and password
+* Detailed list of duplicates with ID, name, `revisionDate`, username, and password
+* Items are sorted by `revisionDate` (newest first); oldest or missing dates appear last
 * Any password containing a search string is highlighted in red
 
 ---
