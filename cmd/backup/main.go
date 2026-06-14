@@ -75,20 +75,29 @@ func main() {
 
 	// Perform recursive backup
 	bytesTransferred := int64(0)
+	filesCopied := int64(0)
+	filesSkipped := int64(0)
 	startTime := time.Now()
 
-	if err := backupRecursive(sourceDir, destDir, sourceDir, transferRateMB, &bytesTransferred); err != nil {
+	if err := backupRecursive(sourceDir, destDir, sourceDir, transferRateMB, &bytesTransferred, &filesCopied, &filesSkipped); err != nil {
 		fmt.Fprintf(os.Stderr, "Error during backup: %v\n", err)
 		os.Exit(1)
 	}
 
 	elapsed := time.Since(startTime)
 	fmt.Printf("\nBackup completed!\n")
-	fmt.Printf("  Total files transferred: %d bytes\n", bytesTransferred)
+	fmt.Printf("  Files copied: %d\n", filesCopied)
+	fmt.Printf("  Files skipped: %d\n", filesSkipped)
+	dataMB := float64(bytesTransferred) / (1024 * 1024)
+	if dataMB >= 1024 {
+		fmt.Printf("  Total data transferred: %.2f GB\n", dataMB/1024)
+	} else {
+		fmt.Printf("  Total data transferred: %.2f MB\n", dataMB)
+	}
 	fmt.Printf("  Time elapsed: %v\n", elapsed)
 }
 
-func backupRecursive(src, dest, srcRoot string, transferRateMB float64, bytesTransferred *int64) error {
+func backupRecursive(src, dest, srcRoot string, transferRateMB float64, bytesTransferred *int64, filesCopied *int64, filesSkipped *int64) error {
 	files, err := ioutil.ReadDir(src)
 	if err != nil {
 		return err
@@ -105,12 +114,12 @@ func backupRecursive(src, dest, srcRoot string, transferRateMB float64, bytesTra
 				return err
 			}
 			// Recursively copy contents
-			if err := backupRecursive(srcPath, dest, srcRoot, transferRateMB, bytesTransferred); err != nil {
+			if err := backupRecursive(srcPath, dest, srcRoot, transferRateMB, bytesTransferred, filesCopied, filesSkipped); err != nil {
 				return err
 			}
 		} else {
 			// Copy file
-			if err := copyFile(srcPath, destPath, transferRateMB, bytesTransferred); err != nil {
+			if err := copyFile(srcPath, destPath, transferRateMB, bytesTransferred, filesCopied, filesSkipped); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Could not copy file %s: %v\n", srcPath, err)
 				continue
 			}
@@ -121,11 +130,20 @@ func backupRecursive(src, dest, srcRoot string, transferRateMB float64, bytesTra
 	return nil
 }
 
-func copyFile(src, dest string, transferRateMB float64, bytesTransferred *int64) error {
+func copyFile(src, dest string, transferRateMB float64, bytesTransferred *int64, filesCopied *int64, filesSkipped *int64) error {
 	// Get source file info
 	srcInfo, err := os.Stat(src)
 	if err != nil {
 		return err
+	}
+
+	// If destination exists and is newer or same, skip copying
+	if destInfo, err := os.Stat(dest); err == nil {
+		if !srcInfo.ModTime().After(destInfo.ModTime()) {
+			fmt.Printf("[%s] Skipping (dest up-to-date): %s\n", time.Now().Format("2006-01-02 15:04:05"), filepath.Base(src))
+			(*filesSkipped)++
+			return nil
+		}
 	}
 
 	fileSizeMB := float64(srcInfo.Size()) / (1024 * 1024)
@@ -240,5 +258,7 @@ func copyFile(src, dest string, transferRateMB float64, bytesTransferred *int64)
 	bandwidth := mbTotal / elapsed.Seconds()
 	fmt.Printf("\r[%s] Copying: %s (%.2f MB) - %.2f MB/s\n", time.Now().Format("2006-01-02 15:04:05"), filepath.Base(src), fileSizeMB, bandwidth)
 
+	// Count successful copy
+	(*filesCopied)++
 	return nil
 }
